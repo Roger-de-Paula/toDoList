@@ -5,8 +5,9 @@ const app = express()
 const bcrypt = require('bcrypt');
 
 //Database importations
-var db = require('./dbService');
-const dbService = require('./dbService');
+const mysql = require('mysql');
+const pool = require('./dbService').pool;
+const getConnection = require('./dbService').pool;
 
 //input and form readears importations
 const multer = require('multer');
@@ -15,6 +16,7 @@ const upload = multer();
 var helmet = require('helmet');
 var rateLimit = require("express-rate-limit");
 var dotenv = require('dotenv');
+const connection = require('./dbService');
 
 dotenv.config();
 
@@ -42,9 +44,10 @@ app.get("/register", (req, res) => {
 app.post('/register', upload.none(), async (req, res) => {
     var name = req.body.name;
     var email = req.body.email;
-    var hashedPassword = await bcrypt.hash(req.body.password, 10);
-    var sql = `INSERT INTO authentification (name, email, password) VALUES ("${name}", "${email}", "${password}")`;
-    db.query(sql, function(err, result) {
+    const hashedPassword = await bcrypt.hash(req.body.password,10);
+
+    var sql = `INSERT INTO authentification (name, email, password) VALUES ("${name}", "${email}", "${hashedPassword}")`;
+    pool.query(sql, (err, result)  => {
         if (err) throw err;
         console.log('record inserted');
         console.log('new user registred');
@@ -66,33 +69,49 @@ app.post("/login", upload.none(), async (req, res) => {
 
     const user = req.body.email;
     const password = req.body.password;
-    console.log("hello");
-    
-    db.getConnection ( async (err, connection)=> {
-    
+
+
+    pool.getConnection( async (err, connection) => {
         if (err) throw (err);
 
-        const sqlSearch = "Select * from userTable where user = ?";
-        const search_query = mysql.format(sqlSearch,[user]);
 
-        if (result.length == 0) {
-            console.log("--------> User does not exist")
-            res.sendStatus(404)
-           } else {
+        const sqlSearch = "SELECT * FROM authentification where email = ?";
+        const search_query = mysql.format(sqlSearch, [user]);
 
-            const hashedPassword = result[0].password
-            //get the hashedPassword from result
 
-            if (await bcrypt.compare(password, hashedPassword)) {
-                console.log("---------> Login Successful")
-                res.send(`${user} is logged in!`)
-                res.redirect('/home');
+
+        await connection.query (search_query, async (err, result) => {
+            
+            connection.release();
+
+            if (err) throw (err);
+
+            if (result.length == 0) {
+                console.log("--------> User does not exist")
+                res.sendStatus(404)
             } else {
-                console.log("---------> Password Incorrect")
-                res.send("Password incorrect!")
-            } //end of bcrypt.compare()
+                const hashedPassword = result[0].password
+                //get the hashedPassword from result
 
-}
-}) 
-}) 
+                if (await bcrypt.compare(password, hashedPassword)) {
+                    console.log("---------> Login Successful")
+                    res.redirect('home');
+                } 
+                else {
+                    console.log("---------> Password Incorrect")
+                    
+                } //end of bcrypt.compare()
+            }
+
+        })
+    })
+
+
+}); 
+ 
+
+app.get("/home", (req, res) => {
+    res.render('home');
+    }
+)
 

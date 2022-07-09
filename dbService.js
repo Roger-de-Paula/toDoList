@@ -3,7 +3,8 @@ const dotenv = require('dotenv');
 let instance = null;
 dotenv.config();
 
-const connection = mysql.createConnection({
+const pool = mysql.createPool({
+    connectionLimit : 100,
     host: 'localhost',
     user: 'roger',
     password: process.env.PASSWORD,
@@ -11,35 +12,23 @@ const connection = mysql.createConnection({
     port: process.env.DB_PORT
 });
 
-connection.connect((err) => {
+pool.query("SELECT * FROM authentification" ,(err, data) => {
     if(err) {
-        console.log(err.message);
+        console.error(err);
+        return;
     }
-    console.log('db ' + connection.state);
+    // rows fetch
+    console.log("db " + "connected");
 });
 
-class DbService {
-    static getDbServiceInstance() {
-        return instance ? instance : new DbService();
-    }
+var getConnection = function(callback) {
+    pool.getConnection(function(err, connection) {
+        callback(err, connection);
+    });
+};
 
-    async getAllData() {
-        try{
-            const response  = await new Promise((resolve, reject) => {
-                const query = "SELECT * FROM names;";
+module.exports = getConnection;
+module.exports = { pool };
 
-                connection.query(query, (err, results) => {
-                    if (err) reject(new Error(err.message));
-                    resolve(results);
-                })
-            });
-            return response
-        } catch (error) {
-            console.log(error);
-        }
-    }
 
-}
 
-module.exports = DbService;
-module.exports = connection;
