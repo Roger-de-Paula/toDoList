@@ -28,6 +28,17 @@ app.use(express.urlencoded({ extended: true }));
 
 app.set("view engine", "ejs")
 
+var sass = require("sass");
+
+
+
+
+
+
+
+app.use(express.static(__dirname + '/views'));
+
+
 
 app.listen(8000, () => {
     console.log("Application started and listening on port 8000")
