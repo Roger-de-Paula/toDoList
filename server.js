@@ -1,5 +1,10 @@
 const express = require('express')
 const app = express()
+var session = require('express-session');
+
+
+//display
+const flash = require('connect-flash');
 
 //Cyber Security
 const bcrypt = require('bcrypt');
@@ -25,15 +30,21 @@ dotenv.config();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(express.static(__dirname + '/views'));
+app.set("view engine", "ejs");
 
-app.set("view engine", "ejs")
+
+app.use(session({
+    secret:'flashblog',
+    saveUninitialized: true,
+    resave: true
+}));
+
+app.use(flash());
+
+
 
 var sass = require("sass");
-
-
-
-
-
 
 
 app.use(express.static(__dirname + '/views'));
@@ -45,26 +56,42 @@ app.listen(8000, () => {
 })
 
 
-
 //Register Page
 
 app.get("/register", (req, res) => {
     res.render('register')
 })
 
+
+
 app.post('/register', upload.none(), async (req, res) => {
+
+    //Register Information
     var name = req.body.name;
     var email = req.body.email;
-    const hashedPassword = await bcrypt.hash(req.body.password,10);
+    const hashedPassword = await bcrypt.hash(req.body.pass,10);
+    var  repeatPassword = req.body.re_pass;
 
-    var sql = `INSERT INTO authentification (name, email, password) VALUES ("${name}", "${email}", "${hashedPassword}")`;
-    pool.query(sql, (err, result)  => {
-        if (err) throw err;
-        console.log('record inserted');
-        console.log('new user registred');
-        //req.flash('success', 'Data added successfully!');
-        res.redirect('/login');
-      });
+    //Possible Errors
+    var registrationError = [
+        {name: 'passwordsDoenstMatch', message: `The passwords doesn't match`},
+        {name: 'nameAlreadyExists', message: `This name already has been taken`},
+        {name: 'emailAreadyexists', message: `This email aready has been taken`},
+    ]
+    if (repeatPassword !== hashedPassword) {
+        console.log(registrationError[0]);
+
+    } else if (await bcrypt.compare(repeatPassword, hashedPassword)) {
+        console.log("Password matches");
+        var sql = `INSERT INTO authentification (name, email, password) VALUES ("${name}", "${email}", "${hashedPassword}")`;
+        pool.query(sql, (err, result)  => {
+            if (err) throw err;
+            console.log('record inserted');
+            console.log('new user registred');
+            res.redirect('/login');
+          });
+    }
+
 });
 
 
